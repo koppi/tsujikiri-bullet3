@@ -1,0 +1,73 @@
+# tsujikiri input config for the Bullet3 LuaBridge3 bindings.
+# Configured by CMake into the build directory as bullet3.input.yml; the file
+# name makes tsujikiri emit `void register_bullet3(lua_State*)` and put every
+# binding in the `bullet3` Lua namespace.
+
+source:
+  path: "@CMAKE_CURRENT_SOURCE_DIR@/bullet3_headers.h"
+
+# libclang-ng does not ship arm_neon.h, so parse Bullet with its scalar
+# (non-SIMD) code path. This only hides SIMD-only overloads from the parser,
+# the real build still uses NEON.
+parse_args: ["-x", "c++", "-std=c++17", "-U__ARM_NEON__"]
+include_paths: ["@bullet3_SOURCE_DIR@/src"]
+defines: ["NDEBUG=1"]
+
+filters:
+  classes:
+    whitelist:
+      - btVector3
+      - btCollisionConfiguration
+      - btDefaultCollisionConfiguration
+      - btDefaultCollisionConstructionInfo
+      - btDispatcher
+      - btCollisionDispatcher
+      - btBroadphaseInterface
+      - btDbvtBroadphase
+      - btConstraintSolver
+      - btSequentialImpulseConstraintSolver
+      - btCollisionWorld
+      - btDynamicsWorld
+      - btDiscreteDynamicsWorld
+
+  methods:
+    global_blacklist:
+      - pattern: "operator.*"
+        is_regex: true
+      # Out parameters (float&) or raw C callbacks, not bindable to Lua
+      - maxDot
+      - minDot
+      - convexSweepTest
+      - solveGroup
+      - setInternalTickCallback
+      - pattern: ".*NearCallback"
+        is_regex: true
+      - pattern: ".*ConstraintRowSolver.*"
+        is_regex: true
+
+  # Bullet's public m_* members are internals
+  fields:
+    global_blacklist:
+      - pattern: ".*"
+        is_regex: true
+
+  functions:
+    blacklist:
+      - pattern: ".*"
+        is_regex: true
+
+  constructors:
+    include: true
+    per_class:
+      btDynamicsWorld:
+        include: false # abstract
+
+transforms:
+  - stage: suppress_enum
+    pattern: ".*"
+    is_regex: true
+
+generation:
+  includes: ["<btBulletDynamicsCommon.h>"]
+
+pretty: true
