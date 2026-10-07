@@ -14,21 +14,23 @@ include_paths: ["@bullet3_SOURCE_DIR@/src"]
 defines: ["NDEBUG=1"]
 
 filters:
+  # Only bind Bullet, not the standard library types the headers pull in
+  sources:
+    exclude_patterns:
+      - "/usr/*"
+      - "*/clang/native/*"
+
   classes:
-    whitelist:
-      - btVector3
-      - btCollisionConfiguration
-      - btDefaultCollisionConfiguration
-      - btDefaultCollisionConstructionInfo
-      - btDispatcher
-      - btCollisionDispatcher
-      - btBroadphaseInterface
-      - btDbvtBroadphase
-      - btConstraintSolver
-      - btSequentialImpulseConstraintSolver
-      - btCollisionWorld
-      - btDynamicsWorld
-      - btDiscreteDynamicsWorld
+    blacklist:
+      # Private nested type and a class template
+      - sStkNN
+      - btModifiedGramSchmidt
+      # Nested types sharing a name across classes collide in the flat Lua namespace
+      - sResults
+      - Range
+      - CreateFunc
+      - SwappedCreateFunc
+      - Specs
 
   methods:
     global_blacklist:
@@ -45,6 +47,117 @@ filters:
       - pattern: ".*ConstraintRowSolver.*"
         is_regex: true
 
+    # Methods taking raw pointers/arrays/templates or ambiguous nested types
+    # that LuaBridge3 cannot bind (found by compiling the generated bindings)
+    per_class:
+      # Declared in Bullet's headers but never defined
+      btGeometryUtil:
+        blacklist: [isInside]
+      btDeformableBackwardEulerObjective:
+        blacklist: [computeStep]
+      btThreadSupportInterface:
+        blacklist: [create]
+      BT_QUANTIZED_BVH_NODE:
+        blacklist: [testQuantizedBoxOverlapp]
+      GIM_AABB:
+        blacklist: [projection_interval]
+      GIM_TRIANGLE:
+        blacklist: [get_uv_parameters, ray_collision, ray_collision_front_side]
+      IslandCallback:
+        blacklist: [processIsland]
+      MultiBodyInplaceSolverIslandCallback:
+        blacklist: [processIsland, setup]
+      SphereTriangleDetector:
+        blacklist: [collide]
+      TrimeshPrimitiveManager:
+        blacklist: [get_indices]
+      btAABB:
+        blacklist: [projection_interval]
+      btAngularLimit:
+        blacklist: [fit]
+      btCollisionShape:
+        blacklist: [getBoundingSphere]
+      btCollisionWorldImporter:
+        blacklist: [createMultiSphereShape]
+      btCompoundShape:
+        blacklist: [calculatePrincipalAxisTransform]
+      btConvexHullComputer:
+        blacklist: [compute]
+      btConvexHullShape:
+        blacklist: [project]
+      btConvexPolyhedron:
+        blacklist: [project]
+      btConvexShape:
+        blacklist: [project]
+      btConvexTriangleMeshShape:
+        blacklist: [calculatePrincipalAxisTransform]
+      btDbvt:
+        blacklist: [clone, collideKDOP, collideOCL, collideTT, collideTTpersistentStack, collideTU, collideTV, collideTVNoStackAlloc, enumLeaves, enumNodes, nearest, rayTest, rayTestInternal, selfCollideT, selfCollideTT]
+      btDbvtAabbMm:
+        blacklist: [FromPoints]
+      btDefaultSerializer:
+        blacklist: [writeHeader]
+      btDeformableBodySolver:
+        blacklist: [computeDescentStep, copySoftBodyToVertexBuffer, solveContactConstraints]
+      btDeformableContactProjection:
+        blacklist: [solveSplitImpulse, update]
+      btDeformableMultiBodyConstraintSolver:
+        blacklist: [solveDeformableBodyGroup]
+      btDeformableMultiBodyDynamicsWorld:
+        blacklist: [setSolverCallback, solveMultiBodyConstraints]
+      btGhostObject:
+        blacklist: [getOverlappingPairs]
+      btGjkEpaSolver2:
+        blacklist: [Distance, Penetration, SignedDistance]
+      btMatrix3x3:
+        blacklist: [getEulerYPR, getEulerZYX, getOpenGLSubMatrix, setFromOpenGLSubMatrix]
+      btMiniSDF:
+        blacklist: [interpolate]
+      btMultiBody:
+        blacklist: [addJointTorqueMultiDof, applyDeltaSplitVeeMultiDof, applyDeltaVeeMultiDof, applyDeltaVeeMultiDof2, calcAccelerationDeltasMultiDof, fillConstraintJacobianMultiDof, fillContactJacobianMultiDof, getBaseVel, setJointPosMultiDof, setJointVelMultiDof, stepPositionsMultiDof]
+      btMultiBodyConstraintSolver:
+        blacklist: [solveGroupCacheFriendlyFinish, solveMultiBodyGroup]
+      btMultibodyLink:
+        blacklist: [updateCacheMultiDof]
+      btQuantizedBvh:
+        blacklist: [quantize, quantizeWithClamp, unQuantize]
+      btQuantizedBvhTree:
+        blacklist: [quantizePoint, testQuantizedBoxOverlapp]
+      btQuaternion:
+        blacklist: [getEulerZYX]
+      btReducedDeformableBody:
+        blacklist: [computeNodeFullVelocity, computeTotalAngularMomentum, internalComputeNodeDeltaVelocity]
+      btReducedDeformableBodySolver:
+        blacklist: [solveContactConstraints]
+      btReducedDeformableRigidContactConstraint:
+        blacklist: [calculateTangentialImpulse]
+      btSdfCollisionShape:
+        blacklist: [queryPoint]
+      btSequentialImpulseConstraintSolverMt:
+        blacklist: [internalCollectContactManifoldCachedInfo, internalConvertBodies, internalConvertMultipleJoints, internalInitMultipleJoints, solveGroupCacheFriendlyFinish, solveGroupCacheFriendlySetup, solveGroupCacheFriendlySplitImpulseIterations, solveSingleIteration]
+      btSimulationIslandManagerMt:
+        blacklist: [getIslandDispatchFunction, setIslandDispatchFunction]
+      btSoftBody:
+        blacklist: [clusterCom, getSolver, indicesToPointers, rayFaceTest, rayTest, solveClusters, solveCommonConstraints]
+      btSoftBodyHelpers:
+        blacklist: [CreateFromTriMesh, CreatePatchUV]
+      btSolve2LinearConstraint:
+        blacklist: [resolveBilateralPairConstraint, resolveUnilateralPairConstraint]
+      btSpatialTransformationMatrix:
+        blacklist: [transformInverse]
+      btSphereBoxCollisionAlgorithm:
+        blacklist: [getSphereDistance]
+      btStridingMeshInterface:
+        blacklist: [getLockedReadOnlyVertexIndexBase, getLockedVertexIndexBase]
+      btTransform:
+        blacklist: [getOpenGLMatrix, setFromOpenGLMatrix]
+      btTransformUtil:
+        blacklist: [calculateDiffAxisAngle, calculateDiffAxisAngleQuaternion]
+      btTriangleIndexVertexArray:
+        blacklist: [getLockedReadOnlyVertexIndexBase, getLockedVertexIndexBase]
+      btTriangleIndexVertexMaterialArray:
+        blacklist: [getLockedMaterialBase, getLockedReadOnlyMaterialBase]
+
   # Bullet's public m_* members are internals
   fields:
     global_blacklist:
@@ -59,15 +172,206 @@ filters:
   constructors:
     include: true
     per_class:
-      btDynamicsWorld:
-        include: false # abstract
+      # Constructors taking raw pointers/arrays or protected operator new
+      ConstructionInfo: {include: false}
+      GIM_BOX_BOX_TRANSFORM_CACHE: {include: false}
+      btCPUVertexBufferDescriptor: {include: false}
+      btCollisionObjectWrapper: {include: false}
+      btConstraintSolverPoolMt: {include: false}
+      btConvexHullShape: {include: false}
+      btDefaultSerializer: {include: false}
+      btDeformableBackwardEulerObjective: {include: false}
+      btHeightfieldTerrainShape: {include: false}
+      btMultiSphereShape: {include: false}
+      btReducedDeformableBody: {include: false}
+      btReducedDeformableFaceRigidContactConstraint: {include: false}
+      btSoftBody: {include: false}
+      btTriangleIndexVertexArray: {include: false}
+      btTriangleIndexVertexMaterialArray: {include: false}
+      # Abstract classes cannot be instantiated
+      ContactResultCallback: {include: false}
+      ConvexResultCallback: {include: false}
+      GIM_PRIMITIVE_MANAGER_PROTOTYPE: {include: false}
+      IWriter: {include: false}
+      ImplicitFn: {include: false}
+      IslandCallback: {include: false}
+      Joint: {include: false}
+      Preconditioner: {include: false}
+      RayResultCallback: {include: false}
+      Result: {include: false}
+      btActionInterface: {include: false}
+      btBroadphaseAabbCallback: {include: false}
+      btBroadphaseInterface: {include: false}
+      btCGProjection: {include: false}
+      btCharacterControllerInterface: {include: false}
+      btCollisionAlgorithm: {include: false}
+      btCollisionConfiguration: {include: false}
+      btCollisionShape: {include: false}
+      btConcaveShape: {include: false}
+      btConstraintSolver: {include: false}
+      btConvexCast: {include: false}
+      btConvexPenetrationDepthSolver: {include: false}
+      btConvexShape: {include: false}
+      btCriticalSection: {include: false}
+      btDeformableContactConstraint: {include: false}
+      btDeformableLagrangianForce: {include: false}
+      btDeformableRigidContactConstraint: {include: false}
+      btDiscreteCollisionDetectorInterface: {include: false}
+      btDispatcher: {include: false}
+      btDynamicsWorld: {include: false}
+      btGImpactShapeInterface: {include: false}
+      btIDebugDraw: {include: false}
+      btIParallelForBody: {include: false}
+      btIParallelSumBody: {include: false}
+      btITaskScheduler: {include: false}
+      btInternalTriangleIndexCallback: {include: false}
+      btMLCPSolverInterface: {include: false}
+      btMotionState: {include: false}
+      btMultiBodyConstraint: {include: false}
+      btNodeOverlapCallback: {include: false}
+      btOverlapCallback: {include: false}
+      btOverlapFilterCallback: {include: false}
+      btOverlappingPairCache: {include: false}
+      btOverlappingPairCallback: {include: false}
+      btPolyhedralConvexShape: {include: false}
+      btPrimitiveManagerBase: {include: false}
+      btReducedDeformableRigidContactConstraint: {include: false}
+      btSerializer: {include: false}
+      btSoftBodySolver: {include: false}
+      btSoftBodySolverOutput: {include: false}
+      btStridingMeshInterface: {include: false}
+      btThreadSupportInterface: {include: false}
+      btTriangleCallback: {include: false}
+      btTriangleConvexcastCallback: {include: false}
+      btTriangleRaycastCallback: {include: false}
+      btTypedConstraint: {include: false}
+      btVehicleRaycaster: {include: false}
+      btVertexBufferDescriptor: {include: false}
+      error_category: {include: false}
 
 transforms:
+  # Template specializations (btAlignedObjectArray<T>, ...) are not bound, so derive from nothing
+  - stage: suppress_base
+    class: ".*"
+    class_is_regex: true
+    base: ".*<.*"
+    is_regex: true
   - stage: suppress_enum
     pattern: ".*"
     is_regex: true
 
+# Bullet declares nested types (btDbvt::ICollide, btSoftBody::Node, ...) that
+# tsujikiri emits unqualified in signatures; alias the unambiguous ones globally.
+# Regenerate this list when upgrading Bullet.
 generation:
-  includes: ["<btBulletDynamicsCommon.h>"]
+  prefix: |
+    #include "@CMAKE_CURRENT_SOURCE_DIR@/bullet3_headers.h"
+
+    using AJoint = btSoftBody::AJoint;
+    using AllHitsRayResultCallback = btCollisionWorld::AllHitsRayResultCallback;
+    using Anchor = btSoftBody::Anchor;
+    using AnisotropicFrictionFlags = btCollisionObject::AnisotropicFrictionFlags;
+    using BatchingMethod = btBatchedConstraints::BatchingMethod;
+    using Body = btSoftBody::Body;
+    using BufferTypes = btVertexBufferDescriptor::BufferTypes;
+    using CJoint = btSoftBody::CJoint;
+    using CastResult = btConvexCast::CastResult;
+    using ClosestConvexResultCallback = btCollisionWorld::ClosestConvexResultCallback;
+    using ClosestPointInput = btDiscreteCollisionDetectorInterface::ClosestPointInput;
+    using ClosestRayResultCallback = btCollisionWorld::ClosestRayResultCallback;
+    using Cluster = btSoftBody::Cluster;
+    using ClusterBase = btSoftColliders::ClusterBase;
+    using CollideCCD = btSoftColliders::CollideCCD;
+    using CollideCL_RS = btSoftColliders::CollideCL_RS;
+    using CollideCL_SS = btSoftColliders::CollideCL_SS;
+    using CollideFF_DD = btSoftColliders::CollideFF_DD;
+    using CollideSDF_RD = btSoftColliders::CollideSDF_RD;
+    using CollideSDF_RDF = btSoftColliders::CollideSDF_RDF;
+    using CollideSDF_RS = btSoftColliders::CollideSDF_RS;
+    using CollideVF_DD = btSoftColliders::CollideVF_DD;
+    using CollideVF_SS = btSoftColliders::CollideVF_SS;
+    using CollisionFilterGroups = btBroadphaseProxy::CollisionFilterGroups;
+    using CollisionFlags = btCollisionObject::CollisionFlags;
+    using CollisionObjectTypes = btCollisionObject::CollisionObjectTypes;
+    using CompoundPrimitiveManager = btGImpactCompoundShape::CompoundPrimitiveManager;
+    using Config = btSoftBody::Config;
+    using ConstructionInfo = btThreadSupportInterface::ConstructionInfo;
+    using ContactResultCallback = btCollisionWorld::ContactResultCallback;
+    using ConvexResultCallback = btCollisionWorld::ConvexResultCallback;
+    using DebugDrawModes = btIDebugDraw::DebugDrawModes;
+    using DefaultColors = btIDebugDraw::DefaultColors;
+    using DeformableFaceNodeContact = btSoftBody::DeformableFaceNodeContact;
+    using DeformableFaceRigidContact = btSoftBody::DeformableFaceRigidContact;
+    using DeformableNodeRigidAnchor = btSoftBody::DeformableNodeRigidAnchor;
+    using DeformableNodeRigidContact = btSoftBody::DeformableNodeRigidContact;
+    using DeformableRigidContact = btSoftBody::DeformableRigidContact;
+    using DispatchFunc = btDispatcherInfo::DispatchFunc;
+    using DispatcherFlags = btCollisionDispatcher::DispatcherFlags;
+    using EFlags = btTriangleRaycastCallback::EFlags;
+    using Edge = btConvexHullComputer::Edge;
+    using Element = btSoftBody::Element;
+    using Face = btSoftBody::Face;
+    using Feature = btSoftBody::Feature;
+    using HalfEdge = ConvexH::HalfEdge;
+    using IClone = btDbvt::IClone;
+    using ICollide = btDbvt::ICollide;
+    using IControl = btSoftBody::AJoint::IControl;
+    using IWriter = btDbvt::IWriter;
+    using ImplicitFn = btSoftBody::ImplicitFn;
+    using Impulse = btSoftBody::Impulse;
+    using Island = btSimulationIslandManagerMt::Island;
+    using IslandCallback = btSimulationIslandManager::IslandCallback;
+    using Joint = btSoftBody::Joint;
+    using JointParams = btSequentialImpulseConstraintSolverMt::JointParams;
+    using LJoint = btSoftBody::LJoint;
+    using Link = btSoftBody::Link;
+    using LocalConvexResult = btCollisionWorld::LocalConvexResult;
+    using LocalRayResult = btCollisionWorld::LocalRayResult;
+    using LocalShapeInfo = btCollisionWorld::LocalShapeInfo;
+    using Material = btSoftBody::Material;
+    using Node = btSoftBody::Node;
+    using Note = btSoftBody::Note;
+    using Pose = btSoftBody::Pose;
+    using RContact = btSoftBody::RContact;
+    using RayFromToCaster = btSoftBody::RayFromToCaster;
+    using RayResultCallback = btCollisionWorld::RayResultCallback;
+    using RaycastInfo = btWheelInfo::RaycastInfo;
+    using RenderFace = btSoftBody::RenderFace;
+    using RenderNode = btSoftBody::RenderNode;
+    using Result = btDiscreteCollisionDetectorInterface::Result;
+    using SContact = btSoftBody::SContact;
+    using SolverParams = btSimulationIslandManagerMt::SolverParams;
+    using SolverState = btSoftBody::SolverState;
+    using SolverTypes = btSoftBodySolver::SolverTypes;
+    using Tetra = btSoftBody::Tetra;
+    using TetraScratch = btSoftBody::TetraScratch;
+    using TrimeshPrimitiveManager = btGImpactMeshShapePart::TrimeshPrimitiveManager;
+    using btConstraintInfo1 = btTypedConstraint::btConstraintInfo1;
+    using btConstraintInfo2 = btTypedConstraint::btConstraintInfo2;
+    using btContactManifoldCachedInfo = btSequentialImpulseConstraintSolverMt::btContactManifoldCachedInfo;
+    using btCpuFeature = btCpuFeatureUtility::btCpuFeature;
+    using btDeformableSingleRayCallback = btDeformableMultiBodyDynamicsWorld::btDeformableSingleRayCallback;
+    using btRigidBodyConstructionInfo = btRigidBody::btRigidBodyConstructionInfo;
+    using btTraversalMode = btQuantizedBvh::btTraversalMode;
+    using btVehicleRaycasterResult = btVehicleRaycaster::btVehicleRaycasterResult;
+    using btVehicleTuning = btRaycastVehicle::btVehicleTuning;
+    using eAeroModel = btSoftBody::eAeroModel;
+    using eFeatherstoneJointType = btMultibodyLink::eFeatherstoneJointType;
+    using eFeature = btSoftBody::eFeature;
+    using eOutputOperation = btSpatialTransformationMatrix::eOutputOperation;
+    using ePSolver = btSoftBody::ePSolver;
+    using eSolverPresets = btSoftBody::eSolverPresets;
+    using eType = btSoftBody::Joint::eType;
+    using eVSolver = btSoftBody::eVSolver;
+    using fCollision = btSoftBody::fCollision;
+    using fMaterial = btSoftBody::fMaterial;
+    using sCti = btSoftBody::sCti;
+    using sMedium = btSoftBody::sMedium;
+    using sRayCast = btSoftBody::sRayCast;
+    using sStkCLN = btDbvt::sStkCLN;
+    using sStkNN = btDbvt::sStkNN;
+    using sStkNP = btDbvt::sStkNP;
+    using sStkNPS = btDbvt::sStkNPS;
+    using sStknNN = btDbvt::sStknNN;
 
 pretty: true

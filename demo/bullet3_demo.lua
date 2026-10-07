@@ -77,6 +77,22 @@ print("   - Solver reset completed")
 dynamicsWorld:clear_forces()
 print("   - All forces cleared from dynamics world")
 
+-- 7. Test rigid bodies, shapes and motion states
+print()
+print("7. Testing a falling rigid body...")
+local shape = bullet3.btSphereShape(0.5)
+local motionState = bullet3.btDefaultMotionState()
+local info = bullet3.btRigidBodyConstructionInfo(1.0, motionState, shape, bullet3.btVector3(0.0, 0.0, 0.0))
+local body = bullet3.btRigidBody(info)
+dynamicsWorld:add_rigid_body(body)
+for i = 1, 60 do
+    dynamicsWorld:step_simulation(1.0/60.0, 10, 1.0/60.0)
+end
+local origin = body:get_world_transform():get_origin()
+print("   - Body fell to y = " .. origin:y())
+assert(origin:y() < 0.0, "rigid body should have fallen under gravity")
+dynamicsWorld:remove_rigid_body(body)
+
 print("   - All physics simulation tests completed successfully!")
 print()
 print("=== Physics Simulation Demo Complete ===")

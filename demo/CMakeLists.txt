@@ -120,6 +120,7 @@ target_compile_definitions(bullet3_demo PRIVATE
 )
 
 target_link_libraries(bullet3_demo PRIVATE
+    BulletSoftBody
     BulletDynamics
     BulletCollision
     LinearMath

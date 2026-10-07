@@ -6,7 +6,7 @@ This demo shows how to use [tsujikiri](https://github.com/kunitoki/tsujikiri) to
 
 - **Automatic Binding Generation**: Uses upstream tsujikiri (installed from PyPI) and its built-in `luabridge3` format to analyze Bullet3 headers and generate LuaBridge3 bindings
 - **CMake Integration**: Fetches Bullet3, LuaBridge3, and Lua automatically using FetchContent
-- **Physics Simulation**: Demonstrates constraint solver, dynamics world, and gravity manipulation
+- **Physics Simulation**: Demonstrates constraint solver, dynamics world, gravity manipulation and a falling rigid body
 - **Code Formatting**: Generated bindings are formatted with the clang-format bundled with tsujikiri
 - **External Lua Scripts**: Demo script is externalized to `bullet3_demo.lua` for easy modification
 
@@ -84,17 +84,30 @@ The bindings are regenerated automatically whenever these files change during th
 
 ## Generated Bindings
 
-The demo generates bindings for these Bullet3 classes, including their inheritance chains:
-
-- `btVector3` - 3D vector mathematics with multiple constructors
-- `btCollisionConfiguration`, `btDefaultCollisionConfiguration` - Collision configuration
-- `btDefaultCollisionConstructionInfo` - Collision construction parameters
-- `btDispatcher`, `btCollisionDispatcher` - Collision dispatcher
-- `btBroadphaseInterface`, `btDbvtBroadphase` - Dynamic bounding volume tree broadphase
-- `btConstraintSolver`, `btSequentialImpulseConstraintSolver` - Constraint solver
-- `btCollisionWorld`, `btDynamicsWorld`, `btDiscreteDynamicsWorld` - Physics simulation world
+Every public class of `LinearMath`, `BulletCollision`, `BulletDynamics` and `BulletSoftBody` is bound (about 560 classes, including nested ones such as `btSoftBody::Node`), together with their inheritance chains. `bullet3_headers.h` includes all of those headers and `bullet3.input.yml.in` has no class whitelist.
 
 All bindings are registered in the `bullet3` Lua namespace. Method names are converted from `camelCase` to `snake_case` (e.g. `setGravity` becomes `set_gravity`), and methods with default arguments can be called with any number of trailing arguments.
+
+Not everything can be exposed to Lua, so the config leaves out:
+
+- constructors of abstract classes, and of classes whose only constructors take raw pointer/array arguments (e.g. `btConvexHullShape`, `btSoftBody`)
+- methods taking raw pointers to primitives, arrays, templates or function pointers, and methods Bullet declares but never defines
+- nested classes whose name is shared with another nested class (`sResults`, `Range`, `CreateFunc`, `SwappedCreateFunc`, `Specs`), since all classes share one flat Lua namespace
+- template specializations used as base classes (`btAlignedObjectArray<T>`, ...)
+
+tsujikiri emits nested types unqualified in signatures, so `generation.prefix` in `bullet3.input.yml.in` declares a global alias for each unambiguous nested type (`using Node = btSoftBody::Node;`).
+
+### Upgrading Bullet
+
+Bullet is fetched from `master`. When the headers change, regenerate the include list and check that the bindings still compile:
+
+```bash
+cd demo/build/_deps/bullet3-src/src
+find LinearMath BulletCollision BulletDynamics BulletSoftBody -name '*.h' | sort \
+    | grep -v btReducedDeformableContactConstraint.h | sed 's/.*/#include <&>/'
+```
+
+(`btReducedDeformableContactConstraint.h` has no include guard and is already pulled in by `btReducedDeformableBodySolver.h`.) New nested types or unbindable methods show up as compile errors in `bullet3_bindings.cpp`; add an alias to `generation.prefix` or a blacklist entry to `bullet3.input.yml.in`.
 
 ## Demo Output
 
