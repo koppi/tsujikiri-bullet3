@@ -21,6 +21,7 @@ demo/
 ├── bullet3.input.yml.in              # tsujikiri input config template
 ├── requirements.txt                  # Pinned tsujikiri version
 ├── build_and_run.sh                  # Build and run script
+├── tests/                            # Lua tests for the bindings (see "Tests" below)
 └── README.md                         # This file
 ```
 
@@ -108,6 +109,49 @@ find LinearMath BulletCollision BulletDynamics BulletSoftBody -name '*.h' | sort
 ```
 
 (`btReducedDeformableContactConstraint.h` has no include guard and is already pulled in by `btReducedDeformableBodySolver.h`.) New nested types or unbindable methods show up as compile errors in `bullet3_bindings.cpp`; add an alias to `generation.prefix` or a blacklist entry to `bullet3.input.yml.in`.
+
+## Tests
+
+```bash
+just test                                   # build, then run every test through CTest
+BULLET3_TEST_VERBOSE=1 just test            # print one line per test case
+BULLET3_TEST_FILTER=btVector3 demo/build/tests/bullet3_test demo/tests/test_linear_math.lua
+                                            # run the matching test cases of a single script
+```
+
+The tests are Lua scripts in `demo/tests/`. `bullet3_test` runs each one in a fresh Lua state with the generated bindings registered, and every `test_*.lua` file is one CTest test. `testlib.lua` is the small assertion library they share and `physics.lua` builds a dynamics world whose bodies and constraints are taken out again when a test ends (Bullet only keeps raw pointers, so objects must not be collected in the wrong order).
+
+| File | What it covers |
+| --- | --- |
+| `test_api_coverage.lua` | **Every** bound class and function, and most constructors (see below) |
+| `test_linear_math.lua`, `test_linear_math_utils.lua` | vectors, quaternions, matrices, transforms, motion states; hashing, allocators, clocks, polar decomposition, spatial algebra |
+| `test_collision_shapes.lua`, `test_collision_misc.lua` | shapes and their queries, compound and mesh shapes, pair caches, islands, shape hulls, the collision-world importer |
+| `test_rigid_body.lua`, `test_dynamics_world.lua` | rigid bodies and collision objects; stepping, contact response, filtering, ray tests, broadphases, ghost objects |
+| `test_constraints.lua`, `test_vehicle_character.lua` | every constraint type in a short simulation; raycast vehicle and kinematic character controller |
+| `test_narrow_phase.lua`, `test_dbvt.lua`, `test_gimpact.lua` | simplex solver, convex casts, manifolds; AABB tree; GImpact meshes |
+| `test_soft_body.lua`, `test_multibody.lua`, `test_deformable.lua` | soft bodies, Featherstone multibodies, deformable materials |
+| `test_binding_semantics.lua` | how the generated layer behaves: naming, overloads, defaults, references, errors, and the known limitations |
+
+### API coverage
+
+`gen_api_manifest.py` reads the generated `bullet3_bindings.cpp` and writes `bullet3_api.lua`, a list of every registered class with its base class, constructor signatures and function names. It runs on every build, so the list follows Bullet `master` and changes to `bullet3.input.yml.in` and nothing is checked in that could go stale. `test_api_coverage.lua` then checks that
+
+- the `bullet3` namespace holds exactly those classes,
+- every function and static function is reachable from its class table,
+- a class without a bound constructor cannot be called, and
+- every class that can be built from its constructor signatures (arguments are made up from the parameter types, using a concrete implementation for interfaces) is instantiated and every own and inherited member function is reachable on the instance.
+
+Classes that cannot be built from made-up arguments are listed in the `SKIP` table of that file together with the reason: the collision algorithms (their constructors leave members uninitialised unless a dispatcher creates them) and the `*Mt` classes (they need a task scheduler, and `btSetTaskScheduler` is a free function, so it is not bound). The remaining behaviour is covered by the other files; a function that appears in the list but in no behavioural test is only known to exist.
+
+### What the tests found out about the bindings
+
+These are pinned down in `test_binding_semantics.lua`, so a change shows up as a test failure:
+
+- Functions returning an enum (`get_world_type`, `get_solver_type`, `get_constraint_type`, ...) or a `btAlignedObjectArray` (`get_collision_object_array`, ...) can be called but raise `The class is not registered in LuaBridge`.
+- Public data members are not bound, so results held in them cannot be read: the hit point of a `ClosestRayResultCallback`, `CastResult`, `ClosestPointInput`, the solver and tuning parameters.
+- A class without a declared constructor cannot be created. This includes `btMultiBodyConstraintSolver`; a multibody world has to be built with `btMultiBodyMLCPConstraintSolver`, and `btDeformableMultiBodyDynamicsWorld` cannot be built at all.
+- Operators are not bound (`a + b` fails, use the named methods such as `dot` and `cross`), and two userdata for the same C++ pointer do not compare equal.
+- Bullet quirks the tests had to work around: default constructors such as `btVector3()` leave their values uninitialised, `btKinematicCharacterController`'s three-argument constructor takes the x axis as up and treats the shape's local z axis as its height, and the default `btVehicleTuning` suspension sags noticeably on a heavy chassis.
 
 ## Demo Output
 

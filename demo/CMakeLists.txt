@@ -43,7 +43,23 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
+# Bullet's CMakeLists.txt is old and not ours to change, and configuring it causes two warnings:
+#  - cmake_minimum_required(VERSION 3.5) is deprecated, which is silenced only while the
+#    dependencies are being added, so deprecations in this project still show;
+#  - FindOpenGL (CMP0072) wants to know which OpenGL libraries to prefer. Nothing here links
+#    OpenGL, so take the modern default; it falls back to the legacy libraries without GLVND.
+set(OpenGL_GL_PREFERENCE GLVND)
+
+# (CMake only reads the cache entry of CMAKE_WARN_DEPRECATED, so set it there and put it back)
+get_property(bullet3_warn_deprecated_set CACHE CMAKE_WARN_DEPRECATED PROPERTY VALUE SET)
+get_property(bullet3_warn_deprecated CACHE CMAKE_WARN_DEPRECATED PROPERTY VALUE)
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(bullet3 luabridge3 lua)
+if(bullet3_warn_deprecated_set)
+    set(CMAKE_WARN_DEPRECATED ${bullet3_warn_deprecated} CACHE BOOL "" FORCE)
+else()
+    unset(CMAKE_WARN_DEPRECATED CACHE)
+endif()
 
 # Build Lua as a library
 add_library(lua_lib STATIC ${lua_SOURCE_DIR}/onelua.c)
@@ -104,22 +120,15 @@ add_custom_command(
     VERBATIM
 )
 
-# Create the demo executable
-add_executable(bullet3_demo
-    main.cpp
-    "${GENERATED_BINDINGS_FILE}"
-)
+# The generated bindings are compiled once and shared by the demo and the tests
+add_library(bullet3_lua_bindings STATIC "${GENERATED_BINDINGS_FILE}")
 
-target_include_directories(bullet3_demo PRIVATE
+target_include_directories(bullet3_lua_bindings PUBLIC
     ${bullet3_SOURCE_DIR}/src
     ${luabridge3_SOURCE_DIR}/Source
 )
 
-target_compile_definitions(bullet3_demo PRIVATE
-    BULLET3_DEMO_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/bullet3_demo.lua"
-)
-
-target_link_libraries(bullet3_demo PRIVATE
+target_link_libraries(bullet3_lua_bindings PUBLIC
     BulletSoftBody
     BulletDynamics
     BulletCollision
@@ -127,11 +136,28 @@ target_link_libraries(bullet3_demo PRIVATE
     lua_lib
 )
 
+# Create the demo executable
+add_executable(bullet3_demo main.cpp)
+
+target_compile_definitions(bullet3_demo PRIVATE
+    BULLET3_DEMO_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/bullet3_demo.lua"
+)
+
+target_link_libraries(bullet3_demo PRIVATE bullet3_lua_bindings)
+
 # Add compile definitions for Windows
 if(WIN32)
+    target_compile_definitions(bullet3_lua_bindings PRIVATE _CRT_SECURE_NO_WARNINGS)
     target_compile_definitions(bullet3_demo PRIVATE _CRT_SECURE_NO_WARNINGS)
 elseif(APPLE)
     target_compile_options(BulletDynamics PRIVATE -Wno-everything)
     target_compile_options(BulletCollision PRIVATE -Wno-everything)
     target_compile_options(LinearMath PRIVATE -Wno-everything)
+endif()
+
+# Lua tests for the generated bindings (run with `ctest`, or `just test`)
+option(BULLET3_BUILD_TESTS "Build and register the Lua binding tests" ON)
+if(BULLET3_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
 endif()

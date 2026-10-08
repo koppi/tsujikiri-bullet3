@@ -12,3 +12,7 @@ build:
 # Compile and run the demo
 run: build
     {{build_dir}}/bullet3_demo
+
+# Build, then run the Lua binding tests (BULLET3_TEST_VERBOSE=1 lists every test case)
+test: build
+    ctest --test-dir {{build_dir}} --output-on-failure
